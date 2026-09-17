@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>gaanaspot</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
@@ -86,23 +87,26 @@
     width:100%;
     height:9px;
     background:var(--track);
-    border-radius:7px;
+    border-radius:4px;
     overflow:hidden;
     cursor:pointer;
   }
   .progress-fill{
     position:absolute;
     left:0;top:0;bottom:0;
-    width:0;
+    width:100%;
     background:var(--gold);
     border-radius:0;
+    transform:scaleX(0);
+    transform-origin:left center;
+    will-change:transform;
     pointer-events:none;
   }
   .progress-cut{
     position:absolute;
     top:0;
     bottom:0;
-    width:3px;
+    width:2px;
     transform:translateX(-50%);
     background:var(--surface);
     z-index:2;
@@ -292,9 +296,9 @@
     margin:0 auto 20px;
     display:block;
     object-fit:cover;
-    border-radius:16px;
+    border-radius:10px;
     background:var(--surface-2);
-    box-shadow:0 16px 34px rgba(0,0,0,.25);
+    box-shadow:none;
   }
   .result-kicker{
     margin:0 0 6px;
@@ -308,22 +312,24 @@
   .result-kicker.failed{color:#ef5350}
   .modal-close{
     position:absolute;
-    top:12px;
-    right:12px;
-    width:34px;
-    height:34px;
+    top:8px;
+    right:10px;
+    width:40px;
+    height:40px;
     display:flex;
     align-items:center;
     justify-content:center;
-    border:1px solid var(--border-strong);
-    border-radius:50%;
-    background:var(--surface-2);
-    color:var(--muted);
-    font-size:20px;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    color:#fff;
+    font-size:30px;
+    font-weight:700;
     line-height:1;
     cursor:pointer;
+    text-shadow:0 1px 8px rgba(0,0,0,.55);
   }
-  .modal-close:hover{color:var(--text);border-color:var(--gold)}
+  .modal-close:hover{color:var(--gold)}
   .result-title{
     margin:0;
     font-family:'Space Grotesk',sans-serif;
@@ -386,7 +392,7 @@
 
   <div id="loadingState" class="state">
     <div class="spinner"></div>
-    <div>Loading this week's chart…</div>
+    <div>Loading this week's bangers…</div>
   </div>
 
   <div id="errorState" class="state" style="display:none;">
@@ -463,7 +469,7 @@
   const LOOKUP_URL = "/api/lookup?ids=";
   const DURATIONS = [0.1, 0.5, 2, 8, 15];
   const PREVIEW_LENGTH = 15;
-  const VERY_POPULAR_COUNT = 30;
+  const VERY_POPULAR_COUNT = 100;
 
   const el = id => document.getElementById(id);
   const loadingState = el("loadingState");
@@ -566,7 +572,7 @@
 
   function setProgress(seconds){
     const clamped = Math.max(0, Math.min(PREVIEW_LENGTH, seconds));
-    progressFillEl.style.width = ((clamped / PREVIEW_LENGTH) * 100) + "%";
+    progressFillEl.style.transform = "scaleX(" + (clamped / PREVIEW_LENGTH) + ")";
   }
 
   function setPlayIcon(playing){
@@ -649,7 +655,11 @@
   }
 
   function toggleClipPlayback(){
-    if (!audio || over) return;
+    if (!audio) return;
+    if (over){
+      if (playbackMode === "answer") toggleAnswerPlayback();
+      return;
+    }
     if (!audio.paused && playbackMode === "clip") {
       playbackRun++;
       cancelPlaybackFrames();
@@ -664,23 +674,39 @@
     playClipToLevel(0);
   }
 
-  function playAnswerUntilNext(){
+  function playAnswerUntilNext(restart=false){
     if (!audio) return;
     const run = ++playbackRun;
     cancelPlaybackFrames();
     playbackMode = "answer";
     audio.loop = true;
-    audio.currentTime = 0;
-    setProgress(PREVIEW_LENGTH);
-    setPlayIcon(true);
+    if (restart) audio.currentTime = 0;
     const tick = () => {
-      if (run !== playbackRun || !audio || !resultModal.classList.contains("show")) return;
+      if (run !== playbackRun || !audio || playbackMode !== "answer") return;
       const duration = Math.min(audio.duration || PREVIEW_LENGTH, PREVIEW_LENGTH);
       if (duration > 0) setProgress(Math.min(audio.currentTime, duration));
       answerFrame = requestAnimationFrame(tick);
     };
     answerFrame = requestAnimationFrame(tick);
-    audio.play().catch(() => {});
+    setPlayIcon(!audio.paused);
+    audio.play().catch(() => {
+      if (run === playbackRun) setPlayIcon(false);
+    });
+  }
+
+  function toggleAnswerPlayback(){
+    if (!audio || playbackMode !== "answer") return;
+    if (!audio.paused){
+      playbackRun++;
+      if (answerFrame){
+        cancelAnimationFrame(answerFrame);
+        answerFrame = 0;
+      }
+      audio.pause();
+      setPlayIcon(false);
+      return;
+    }
+    playAnswerUntilNext(false);
   }
 
   function pickNextSong(){
@@ -734,7 +760,7 @@
 
   function openResultModal(won){
     over = true;
-    resultKicker.textContent = won ? "YOU GOT" : "IT WAS";
+    resultKicker.textContent = won ? "(YOU GOT)" : "IT WAS";
     resultKicker.classList.toggle("won", won);
     resultKicker.classList.toggle("failed", !won);
     resultTitle.textContent = current.name;
@@ -747,25 +773,22 @@
     guessInput.disabled = true;
     submitBtn.disabled = true;
     resetSuggestions();
-    playAnswerUntilNext();
+    playAnswerUntilNext(true);
   }
 
   function closeResultModal(){
     if (!resultModal.classList.contains("show")) return;
-    playbackRun++;
-    cancelPlaybackFrames();
-    if (audio){
-      audio.pause();
-      audio.loop = false;
-    }
-    playbackMode = "idle";
-    setPlayIcon(false);
     resultModal.classList.remove("show");
     submitBtn.disabled = false;
     submitBtn.textContent = "Next song";
     submitBtn.classList.remove("skip-mode");
     guessInput.disabled = true;
     resetSuggestions();
+    if (audio){
+      playbackMode = "answer";
+      audio.loop = true;
+      setPlayIcon(!audio.paused);
+    }
   }
 
   function advanceAfterFailure(){
