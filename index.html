@@ -73,6 +73,8 @@
     animation:spin .8s linear infinite;
   }
   @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes songSwap{0%{opacity:.45;transform:translateY(4px)}100%{opacity:1;transform:translateY(0)}}
+  #game.next-song-transition{animation:songSwap .22s ease-out both}
 
   .song-card{
     background:var(--surface);
@@ -695,7 +697,7 @@
   }
 
   function toggleAnswerPlayback(){
-    if (!audio || playbackMode !== "answer") return;
+    if (!audio) return;
     if (!audio.paused){
       playbackRun++;
       if (answerFrame){
@@ -706,6 +708,8 @@
       setPlayIcon(false);
       return;
     }
+    playbackMode = "answer";
+    audio.loop = true;
     playAnswerUntilNext(false);
   }
 
@@ -760,7 +764,7 @@
 
   function openResultModal(won){
     over = true;
-    resultKicker.textContent = won ? "(YOU GOT)" : "IT WAS";
+    resultKicker.textContent = won ? `YOU GOT IT IN ${DURATIONS[levelIndex]}s` : "IT WAS";
     resultKicker.classList.toggle("won", won);
     resultKicker.classList.toggle("failed", !won);
     resultTitle.textContent = current.name;
@@ -854,7 +858,8 @@
   }
 
   playBtn.addEventListener("click", () => {
-    if (!over) toggleClipPlayback();
+    if (over) toggleAnswerPlayback();
+    else toggleClipPlayback();
   });
 
   guessForm.addEventListener("submit", event => {
@@ -897,6 +902,10 @@
 
   nextBtn.addEventListener("click", () => {
     stopAudio();
+    resultModal.classList.remove("show");
+    gameEl.classList.remove("next-song-transition");
+    void gameEl.offsetWidth;
+    gameEl.classList.add("next-song-transition");
     startRound();
   });
   modalClose.addEventListener("click", closeResultModal);
