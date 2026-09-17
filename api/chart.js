@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   try {
     const upstream = await fetch(
-      "https://rss.applemarketingtools.com/api/v2/us/music/most-played/100/songs.json"
+      "https://rss.applemarketingtools.com/api/v2/in/music/most-played/100/songs.json"
     );
     if (!upstream.ok) {
       throw new Error("chart upstream returned " + upstream.status);

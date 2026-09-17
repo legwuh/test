@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
   try {
     const upstream = await fetch(
-      "https://itunes.apple.com/lookup?entity=song&id=" + encodeURIComponent(ids)
+      "https://itunes.apple.com/lookup?entity=song&country=IN&id=" + encodeURIComponent(ids)
     );
     if (!upstream.ok) {
       throw new Error("lookup upstream returned " + upstream.status);
