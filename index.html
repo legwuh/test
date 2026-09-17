@@ -27,10 +27,7 @@
   html,body{ height:100%; }
   body{
     margin:0;
-    background:
-      radial-gradient(circle at 18% -10%, rgba(242,201,76,0.08), transparent 45%),
-      radial-gradient(circle at 85% 110%, rgba(79,224,165,0.06), transparent 40%),
-      var(--bg);
+    background:var(--bg);
     color:var(--text);
     font-family:'Inter', system-ui, sans-serif;
     display:flex;
@@ -72,7 +69,6 @@
     border-radius:18px;
     padding:28px;
     position:relative;
-    overflow:hidden;
   }
 
   /* --- loading / error states --- */
@@ -203,23 +199,20 @@
   .play-btn:disabled{ opacity:0.5; cursor:default; transform:none; }
   .play-btn svg{ width:18px; height:18px; }
 
-  .wave{
+  .progress-track{
     flex:1;
-    height:34px;
-    display:flex;
-    align-items:flex-end;
-    gap:2px;
-    cursor:pointer;
-  }
-  .wave .bar{
-    flex:1;
+    height:8px;
     background:var(--surface-2);
-    border-radius:2px;
-    min-width:2px;
-    transition:background 0.15s ease;
+    border-radius:4px;
+    cursor:pointer;
+    overflow:hidden;
   }
-  .wave .bar.lit{ background:var(--gold); }
-  .wave .bar.played{ background:#c9a63f; }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background:var(--gold);
+    border-radius:4px;
+  }
 
   .current-dur{
     font-family:'Roboto Mono', monospace;
@@ -236,6 +229,7 @@
     flex-direction:column;
     gap:6px;
     margin-bottom:14px;
+    min-height:162px;
   }
   .history .row{
     display:flex;
@@ -298,10 +292,10 @@
     background:var(--surface-2);
     border:1px solid var(--border-strong);
     border-radius:10px;
-    overflow:hidden;
-    z-index:5;
+    z-index:50;
     max-height:220px;
     overflow-y:auto;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.35);
   }
   .suggestions button{
     display:block;
@@ -411,7 +405,6 @@
 <div class="wrap">
 
   <header class="top">
-    <p class="kicker">TODAY'S CHART // ROUND-BASED LISTENING GAME</p>
     <h1>Guess it in <span>five</span> tries.</h1>
     <p>Each round starts at 0.1 seconds. Guess wrong, or skip, and the clip gets longer — 0.5s, 2s, 8s, then 15s. Songs are pulled live from the current global most-played chart.</p>
   </header>
@@ -446,7 +439,7 @@
         <button class="play-btn" id="playBtn" type="button" aria-label="Play snippet">
           <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         </button>
-        <div class="wave" id="wave"></div>
+        <div class="progress-track" id="progressTrack"><div class="progress-fill" id="progressFill"></div></div>
         <div class="current-dur" id="currentDur">0.1s</div>
       </div>
 
@@ -491,7 +484,8 @@
   const CHART_URL = "/api/chart";
   const LOOKUP_URL = "/api/lookup?ids=";
   const DURATIONS = [0.1, 0.5, 2, 8, 15];
-  const WAVE_BARS = 42;
+  const ASSUMED_PREVIEW_LENGTH = 30;
+  const VERY_POPULAR_COUNT = 30;
 
   const el = (id) => document.getElementById(id);
   const loadingState = el("loadingState");
@@ -501,7 +495,8 @@
   const discArt = el("discArt");
   const pipsEl = el("pips");
   const attemptNumEl = el("attemptNum");
-  const waveEl = el("wave");
+  const progressTrackEl = el("progressTrack");
+  const progressFillEl = el("progressFill");
   const playBtn = el("playBtn");
   const playIcon = el("playIcon");
   const currentDurEl = el("currentDur");
@@ -528,7 +523,6 @@
   let guesses = [];        // {text, kind: 'wrong'|'skip'}
   let over = false;
   let audio = null;
-  let waveSeed = [];
   let activeSuggestionIndex = -1;
 
   function normalize(s){
@@ -558,7 +552,8 @@
 
   async function loadPool(){
     const chart = await fetchJSON(CHART_URL);
-    const entries = (chart.feed && chart.feed.results) || [];
+    // the feed is already ranked most-played first — keep only the very top of it
+    const entries = ((chart.feed && chart.feed.results) || []).slice(0, VERY_POPULAR_COUNT);
     const ids = entries.map(e => e.id).filter(Boolean);
     const chunks = [];
     for (let i = 0; i < ids.length; i += 20) chunks.push(ids.slice(i, i + 20));
@@ -588,35 +583,6 @@
     return built;
   }
 
-  function seededBars(id){
-    // deterministic-ish pseudo-random bar heights per song, purely cosmetic
-    let seed = String(id).split("").reduce((a,c) => a + c.charCodeAt(0), 0);
-    const bars = [];
-    for (let i = 0; i < WAVE_BARS; i++){
-      seed = (seed * 9301 + 49297) % 233280;
-      const r = seed / 233280;
-      bars.push(6 + Math.round(r * 26));
-    }
-    return bars;
-  }
-
-  function buildWave(){
-    waveEl.innerHTML = "";
-    waveSeed.forEach(h => {
-      const bar = document.createElement("div");
-      bar.className = "bar";
-      bar.style.height = h + "px";
-      waveEl.appendChild(bar);
-    });
-  }
-
-  function litBarsForDuration(seconds){
-    // treat full preview as ~30s for visual proportion, cap so early durations still show a sliver
-    const total = 30;
-    const frac = Math.min(1, seconds / total);
-    return Math.max(1, Math.round(frac * WAVE_BARS));
-  }
-
   function renderPips(){
     pipsEl.innerHTML = "";
     for (let i = 0; i < DURATIONS.length; i++){
@@ -628,13 +594,7 @@
     }
     attemptNumEl.textContent = String(levelIndex + 1);
     currentDurEl.textContent = DURATIONS[levelIndex] + "s";
-
-    const lit = litBarsForDuration(DURATIONS[levelIndex]);
-    const bars = waveEl.children;
-    for (let i = 0; i < bars.length; i++){
-      bars[i].classList.toggle("lit", i < lit && !over);
-      bars[i].classList.toggle("played", over);
-    }
+    progressFillEl.style.width = "0%";
   }
 
   function renderHistory(){
@@ -667,11 +627,14 @@
     if (!audio) return;
     const dur = DURATIONS[levelIndex];
     audio.currentTime = 0;
+    progressFillEl.style.width = "0%";
     audio.play().catch(() => {});
     discEl.classList.add("spinning");
     playIcon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
 
     const check = () => {
+      const pct = Math.min(100, (audio.currentTime / dur) * 100);
+      progressFillEl.style.width = pct + "%";
       if (audio.currentTime >= dur){
         stopAudio();
         audio.removeEventListener("timeupdate", check);
@@ -699,14 +662,18 @@
     levelIndex = 0;
     guesses = [];
     current = pickNextSong();
-    waveSeed = seededBars(current.id);
 
     if (audio) { audio.pause(); audio = null; }
     audio = new Audio(current.preview);
     audio.preload = "auto";
 
-    discArt.src = current.art;
+    // hide the art instantly (no transition) before swapping the src, so the
+    // upcoming answer never has a chance to render visibly before fading out
+    discArt.style.transition = "none";
     discArt.classList.remove("revealed");
+    discArt.src = current.art;
+    void discArt.offsetHeight; // force a reflow before re-enabling the transition
+    discArt.style.transition = "";
 
     resultEl.classList.remove("show", "win", "lose");
     guessInput.value = "";
@@ -715,7 +682,6 @@
     skipBtn.disabled = false;
     suggestionsEl.style.display = "none";
 
-    buildWave();
     renderPips();
     renderHistory();
     guessInput.focus();
@@ -793,7 +759,7 @@
 
   // --- wire up events ---
   playBtn.addEventListener("click", () => { if (!over) playSnippet(); });
-  waveEl.addEventListener("click", () => { if (!over) playSnippet(); });
+  progressTrackEl.addEventListener("click", () => { if (!over) playSnippet(); });
 
   guessForm.addEventListener("submit", (e) => {
     e.preventDefault();
