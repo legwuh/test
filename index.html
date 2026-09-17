@@ -80,14 +80,14 @@
     padding:34px 28px 30px;
     box-shadow:0 18px 50px rgba(0,0,0,.16);
   }
-  .progress-wrap{position:relative;padding-top:6px}
+  .progress-wrap{position:relative;padding-top:6px;padding-bottom:28px}
   .progress-track{
     position:relative;
     width:100%;
     height:9px;
     background:var(--track);
-    border-radius:0;
-    overflow:visible;
+    border-radius:7px;
+    overflow:hidden;
     cursor:pointer;
   }
   .progress-fill{
@@ -98,25 +98,34 @@
     border-radius:0;
     pointer-events:none;
   }
-  .progress-marker{
+  .progress-cut{
     position:absolute;
-    top:50%;
-    width:2px;
-    height:17px;
-    transform:translate(-50%,-50%);
-    background:rgba(255,255,255,.23);
-    border-radius:2px;
+    top:0;
+    bottom:0;
+    width:3px;
+    transform:translateX(-50%);
+    background:var(--surface);
+    z-index:2;
     pointer-events:none;
   }
-  .progress-marker.active{
-    background:var(--gold);
-    height:23px;
-  }
-  .marker-label{
-    display:none;
+  .progress-label-layer{
     position:absolute;
-    top:32px;
-    left:50%;
+    left:0;
+    right:0;
+    top:0;
+    height:34px;
+    pointer-events:none;
+  }
+  .progress-label-marker{
+    position:absolute;
+    top:29px;
+    display:none;
+  }
+  .progress-label-marker.active{display:block}
+  .marker-label{
+    position:relative;
+    left:0;
+    display:block;
     transform:translateX(-50%);
     font-family:'Roboto Mono',monospace;
     font-size:11px;
@@ -124,12 +133,11 @@
     color:var(--gold);
     white-space:nowrap;
   }
-  .progress-marker.active .marker-label{display:block}
-  .progress-marker.active .marker-label::before{
+  .progress-label-marker.active .marker-label::before{
     content:"";
     position:absolute;
     left:50%;
-    top:-6px;
+    top:-7px;
     transform:translateX(-50%);
     border-left:4px solid transparent;
     border-right:4px solid transparent;
@@ -168,45 +176,22 @@
     color:var(--muted-2);
   }
   .volume-row input[type=range]{
-    --volume-percent:100%;
-    width:150px;
-    height:18px;
+    width:140px;
+    height:4px;
     appearance:none;
     -webkit-appearance:none;
-    background:transparent;
+    background:var(--track);
+    border-radius:999px;
+    accent-color:var(--gold);
     cursor:pointer;
-  }
-  .volume-row input[type=range]::-webkit-slider-runnable-track{
-    height:5px;
-    border-radius:0;
-    background:linear-gradient(to right,var(--gold) 0%,var(--gold) var(--volume-percent),var(--track) var(--volume-percent),var(--track) 100%);
   }
   .volume-row input[type=range]::-webkit-slider-thumb{
     appearance:none;
     -webkit-appearance:none;
-    width:14px;
-    height:14px;
-    margin-top:-4.5px;
-    border:2px solid var(--gold);
-    border-radius:50%;
-    background:var(--bg);
-  }
-  .volume-row input[type=range]::-moz-range-track{
-    height:5px;
-    border-radius:0;
-    background:var(--track);
-  }
-  .volume-row input[type=range]::-moz-range-progress{
-    height:5px;
-    border-radius:0;
-    background:var(--gold);
+    width:13px;height:13px;border-radius:50%;background:var(--gold);
   }
   .volume-row input[type=range]::-moz-range-thumb{
-    width:14px;
-    height:14px;
-    border:2px solid var(--gold);
-    border-radius:50%;
-    background:var(--bg);
+    width:13px;height:13px;border:0;border-radius:50%;background:var(--gold);
   }
 
   form.guess-form{
@@ -292,6 +277,7 @@
   }
   .modal-backdrop.show{display:flex}
   .result-modal{
+    position:relative;
     width:min(430px,100%);
     background:var(--surface);
     border:1px solid var(--border-strong);
@@ -312,12 +298,32 @@
   }
   .result-kicker{
     margin:0 0 6px;
-    color:var(--gold);
-    font-family:'Roboto Mono',monospace;
-    font-size:11px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:13px;
+    font-weight:700;
     text-transform:uppercase;
     letter-spacing:.08em;
   }
+  .result-kicker.won{color:#43d17b}
+  .result-kicker.failed{color:#ef5350}
+  .modal-close{
+    position:absolute;
+    top:12px;
+    right:12px;
+    width:34px;
+    height:34px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--border-strong);
+    border-radius:50%;
+    background:var(--surface-2);
+    color:var(--muted);
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .modal-close:hover{color:var(--text);border-color:var(--gold)}
   .result-title{
     margin:0;
     font-family:'Space Grotesk',sans-serif;
@@ -335,7 +341,7 @@
   }
   .apple-music-btn{
     width:100%;
-    min-height:44px;
+    height:48px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -345,6 +351,7 @@
     background:transparent;
     color:var(--text);
     font-weight:700;
+    box-sizing:border-box;
   }
   .apple-music-btn:hover{
     border-color:var(--gold);
@@ -392,11 +399,18 @@
       <div class="progress-wrap">
         <div class="progress-track" id="progressTrack" aria-label="Song preview progress">
           <div class="progress-fill" id="progressFill"></div>
-          <div class="progress-marker" data-second="0.1"><span class="marker-label">0.1s</span></div>
-          <div class="progress-marker" data-second="0.5"><span class="marker-label">0.5s</span></div>
-          <div class="progress-marker" data-second="2"><span class="marker-label">2s</span></div>
-          <div class="progress-marker" data-second="8"><span class="marker-label">8s</span></div>
-          <div class="progress-marker" data-second="15"><span class="marker-label">15s</span></div>
+          <div class="progress-cut" data-second="0.1"></div>
+          <div class="progress-cut" data-second="0.5"></div>
+          <div class="progress-cut" data-second="2"></div>
+          <div class="progress-cut" data-second="8"></div>
+          <div class="progress-cut" data-second="15"></div>
+        </div>
+        <div class="progress-label-layer" aria-hidden="true">
+          <div class="progress-label-marker" data-second="0.1"><span class="marker-label">0.1s</span></div>
+          <div class="progress-label-marker" data-second="0.5"><span class="marker-label">0.5s</span></div>
+          <div class="progress-label-marker" data-second="2"><span class="marker-label">2s</span></div>
+          <div class="progress-label-marker" data-second="8"><span class="marker-label">8s</span></div>
+          <div class="progress-label-marker" data-second="15"><span class="marker-label">15s</span></div>
         </div>
       </div>
 
@@ -407,7 +421,10 @@
       </div>
 
       <div class="volume-row">
-        <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15" aria-hidden="true"><path d="M5 9v6h4l5 5V4L9 9H5zm11.5 3c0-1.77-1-3.29-2.5-4.03v8.05c1.5-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" width="17" height="17" aria-hidden="true">
+          <path d="M4.5 9.5v5h3.5l4.5 3.7V5.8L8 9.5H4.5z" fill="currentColor"/>
+          <path d="M15.5 8.1a5 5 0 0 1 0 7.8M18 5.6a8.4 8.4 0 0 1 0 12.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
         <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" aria-label="Volume">
       </div>
     </section>
@@ -426,13 +443,14 @@
 
 <div class="modal-backdrop" id="resultModal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
   <div class="result-modal">
+    <button class="modal-close" id="modalClose" type="button" aria-label="Close result">×</button>
     <img class="result-art" id="resultArt" alt="">
-    <p class="result-kicker" id="resultKicker">Song revealed</p>
+    <p class="result-kicker failed" id="resultKicker">IT WAS</p>
     <h2 class="result-title" id="resultTitle"></h2>
     <p class="result-artist" id="resultArtist"></p>
     <div class="result-actions">
-      <a class="apple-music-btn" id="appleMusicBtn" href="#" target="_blank" rel="noopener noreferrer">Listen on Apple Music</a>
       <button class="next-btn" id="nextBtn" type="button">Next song</button>
+      <a class="apple-music-btn" id="appleMusicBtn" href="#" target="_blank" rel="noopener noreferrer">Listen on Apple Music</a>
     </div>
   </div>
 </div>
@@ -467,9 +485,11 @@
   const resultKicker = el("resultKicker");
   const appleMusicBtn = el("appleMusicBtn");
   const nextBtn = el("nextBtn");
+  const modalClose = el("modalClose");
   const retryBtn = el("retryBtn");
-  const markers = Array.from(document.querySelectorAll(".progress-marker"));
-  markers.forEach(marker => {
+  const markers = Array.from(document.querySelectorAll(".progress-label-marker"));
+  const cuts = Array.from(document.querySelectorAll(".progress-cut"));
+  [...markers, ...cuts].forEach(marker => {
     const seconds = Number(marker.dataset.second);
     marker.style.left = ((seconds / PREVIEW_LENGTH) * 100) + "%";
   });
@@ -484,8 +504,9 @@
   let activeSuggestionIndex = -1;
   let playbackRun = 0;
   let playbackMode = "idle";
-  let clipTick = null;
-  let answerTick = null;
+  let clipTarget = 0;
+  let clipFrame = 0;
+  let answerFrame = 0;
 
   function normalize(s){
     return (s || "")
@@ -560,58 +581,70 @@
     setPlayIcon(false);
   }
 
-  function removePlaybackListeners(){
-    if (audio && clipTick){
-      audio.removeEventListener("timeupdate", clipTick);
-      clipTick = null;
+  function cancelPlaybackFrames(){
+    if (clipFrame){
+      cancelAnimationFrame(clipFrame);
+      clipFrame = 0;
     }
-    if (audio && answerTick){
-      audio.removeEventListener("timeupdate", answerTick);
-      answerTick = null;
+    if (answerFrame){
+      cancelAnimationFrame(answerFrame);
+      answerFrame = 0;
     }
   }
 
   function stopAudio(reset=true){
     playbackRun++;
-    removePlaybackListeners();
+    cancelPlaybackFrames();
     playbackMode = "idle";
     if (audio){
       audio.pause();
       if (reset) audio.currentTime = 0;
       audio.loop = false;
     }
-    resetPlaybackUI();
+    setPlayIcon(false);
+    if (reset) setProgress(0);
   }
 
-  function playClipToLevel(){
+  function finishClip(target){
+    cancelPlaybackFrames();
+    if (audio){
+      audio.pause();
+      audio.currentTime = target;
+    }
+    setProgress(target);
+    playbackMode = "idle";
+    setPlayIcon(false);
+  }
+
+  function playClipToLevel(startAt=0){
     if (!audio || over) return;
     const run = ++playbackRun;
     const target = DURATIONS[levelIndex];
-    removePlaybackListeners();
+    clipTarget = target;
+    cancelPlaybackFrames();
     playbackMode = "clip";
     audio.loop = false;
-    audio.currentTime = 0;
-    setProgress(0);
+    const safeStart = Math.max(0, Math.min(startAt, target));
+    audio.currentTime = safeStart;
+    setProgress(safeStart);
     setPlayIcon(true);
 
-    clipTick = () => {
+    const tick = () => {
       if (run !== playbackRun || !audio) return;
-      setProgress(Math.min(audio.currentTime, target));
-      if (audio.currentTime >= target - 0.015){
-        audio.pause();
-        audio.currentTime = target;
-        setProgress(target);
-        playbackMode = "idle";
-        setPlayIcon(false);
-        removePlaybackListeners();
+      const now = Number.isFinite(audio.currentTime) ? audio.currentTime : safeStart;
+      setProgress(Math.min(now, target));
+      if (now >= target - 0.005 || audio.ended){
+        finishClip(target);
+        return;
       }
+      clipFrame = requestAnimationFrame(tick);
     };
-    audio.addEventListener("timeupdate", clipTick);
+    clipFrame = requestAnimationFrame(tick);
     audio.play().catch(() => {
       if (run !== playbackRun) return;
+      cancelPlaybackFrames();
       playbackMode = "idle";
-      removePlaybackListeners();
-      resetPlaybackUI();
+      setPlayIcon(false);
     });
   }
 
@@ -619,31 +652,35 @@
     if (!audio || over) return;
     if (!audio.paused && playbackMode === "clip") {
       playbackRun++;
+      cancelPlaybackFrames();
       audio.pause();
-      playbackMode = "idle";
-      removePlaybackListeners();
       setPlayIcon(false);
       return;
     }
-    playClipToLevel();
+    if (audio.paused && playbackMode === "clip" && audio.currentTime > 0 && audio.currentTime < clipTarget - 0.005){
+      playClipToLevel(audio.currentTime);
+      return;
+    }
+    playClipToLevel(0);
   }
 
   function playAnswerUntilNext(){
     if (!audio) return;
     const run = ++playbackRun;
-    removePlaybackListeners();
+    cancelPlaybackFrames();
     playbackMode = "answer";
     audio.loop = true;
     audio.currentTime = 0;
     setProgress(PREVIEW_LENGTH);
     setPlayIcon(true);
-    audio.play().catch(() => {});
-    answerTick = () => {
+    const tick = () => {
       if (run !== playbackRun || !audio || !resultModal.classList.contains("show")) return;
       const duration = Math.min(audio.duration || PREVIEW_LENGTH, PREVIEW_LENGTH);
       if (duration > 0) setProgress(Math.min(audio.currentTime, duration));
+      answerFrame = requestAnimationFrame(tick);
     };
-    audio.addEventListener("timeupdate", answerTick);
+    answerFrame = requestAnimationFrame(tick);
+    audio.play().catch(() => {});
   }
 
   function pickNextSong(){
@@ -672,6 +709,8 @@
     levelIndex = 0;
     current = pickNextSong();
     resultModal.classList.remove("show");
+    cancelPlaybackFrames();
+    playbackMode = "idle";
 
     if (audio){
       audio.pause();
@@ -685,6 +724,7 @@
     guessInput.disabled = false;
     guessInput.value = "";
     submitBtn.disabled = false;
+    submitBtn.classList.remove("modal-closed-mode");
     updateSubmitMode();
     resetSuggestions();
     setActiveMarker();
@@ -694,7 +734,9 @@
 
   function openResultModal(won){
     over = true;
-    resultKicker.textContent = won ? "You got it" : "Song revealed";
+    resultKicker.textContent = won ? "YOU GOT" : "IT WAS";
+    resultKicker.classList.toggle("won", won);
+    resultKicker.classList.toggle("failed", !won);
     resultTitle.textContent = current.name;
     resultArtist.textContent = current.artist;
     resultArt.src = current.art;
@@ -708,22 +750,46 @@
     playAnswerUntilNext();
   }
 
+  function closeResultModal(){
+    if (!resultModal.classList.contains("show")) return;
+    playbackRun++;
+    cancelPlaybackFrames();
+    if (audio){
+      audio.pause();
+      audio.loop = false;
+    }
+    playbackMode = "idle";
+    setPlayIcon(false);
+    resultModal.classList.remove("show");
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Next song";
+    submitBtn.classList.remove("skip-mode");
+    guessInput.disabled = true;
+    resetSuggestions();
+  }
+
   function advanceAfterFailure(){
     if (over) return;
     if (levelIndex >= DURATIONS.length - 1){
       openResultModal(false);
       return;
     }
+    const previousMark = DURATIONS[levelIndex];
     levelIndex += 1;
     guessInput.value = "";
     updateSubmitMode();
     resetSuggestions();
     setActiveMarker();
-    playClipToLevel();
+    playClipToLevel(previousMark);
   }
 
   function submitGuess(){
-    if (over) return;
+    if (over){
+      if (!resultModal.classList.contains("show")){
+        startRound();
+      }
+      return;
+    }
     const text = guessInput.value.trim();
     if (!text){
       advanceAfterFailure();
@@ -801,22 +867,16 @@
     if (!guessForm.contains(event.target)) resetSuggestions();
   });
 
-  function syncVolumeUI(){
-    const percent = (Number(volumeSlider.value) * 100).toFixed(1) + "%";
-    volumeSlider.style.setProperty("--volume-percent", percent);
-  }
-
   volumeSlider.addEventListener("input", () => {
     currentVolume = Number(volumeSlider.value);
     if (audio) audio.volume = currentVolume;
-    syncVolumeUI();
   });
-  syncVolumeUI();
 
   nextBtn.addEventListener("click", () => {
     stopAudio();
     startRound();
   });
+  modalClose.addEventListener("click", closeResultModal);
   retryBtn.addEventListener("click", boot);
 
   async function boot(){
