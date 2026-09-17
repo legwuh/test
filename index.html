@@ -86,7 +86,7 @@
     width:100%;
     height:9px;
     background:var(--track);
-    border-radius:999px;
+    border-radius:0;
     overflow:visible;
     cursor:pointer;
   }
@@ -95,7 +95,7 @@
     left:0;top:0;bottom:0;
     width:0;
     background:var(--gold);
-    border-radius:999px;
+    border-radius:0;
     pointer-events:none;
   }
   .progress-marker{
@@ -115,7 +115,7 @@
   .marker-label{
     display:none;
     position:absolute;
-    top:24px;
+    top:32px;
     left:50%;
     transform:translateX(-50%);
     font-family:'Roboto Mono',monospace;
@@ -152,10 +152,10 @@
     align-items:center;
     justify-content:center;
     cursor:pointer;
-    box-shadow:0 12px 28px rgba(242,201,76,.15);
-    transition:transform .15s ease,filter .15s ease;
+    box-shadow:none;
+    transition:transform .15s ease;
   }
-  .play-btn:hover{transform:scale(1.05);filter:brightness(1.04)}
+  .play-btn:hover{transform:scale(1.05)}
   .play-btn:active{transform:scale(.98)}
   .play-btn:disabled{opacity:.45;cursor:default;transform:none}
   .play-btn svg{width:28px;height:28px}
@@ -168,22 +168,45 @@
     color:var(--muted-2);
   }
   .volume-row input[type=range]{
-    width:140px;
-    height:4px;
+    --volume-percent:100%;
+    width:150px;
+    height:18px;
     appearance:none;
     -webkit-appearance:none;
-    background:var(--track);
-    border-radius:999px;
-    accent-color:var(--gold);
+    background:transparent;
     cursor:pointer;
+  }
+  .volume-row input[type=range]::-webkit-slider-runnable-track{
+    height:5px;
+    border-radius:0;
+    background:linear-gradient(to right,var(--gold) 0%,var(--gold) var(--volume-percent),var(--track) var(--volume-percent),var(--track) 100%);
   }
   .volume-row input[type=range]::-webkit-slider-thumb{
     appearance:none;
     -webkit-appearance:none;
-    width:13px;height:13px;border-radius:50%;background:var(--gold);
+    width:14px;
+    height:14px;
+    margin-top:-4.5px;
+    border:2px solid var(--gold);
+    border-radius:50%;
+    background:var(--bg);
+  }
+  .volume-row input[type=range]::-moz-range-track{
+    height:5px;
+    border-radius:0;
+    background:var(--track);
+  }
+  .volume-row input[type=range]::-moz-range-progress{
+    height:5px;
+    border-radius:0;
+    background:var(--gold);
   }
   .volume-row input[type=range]::-moz-range-thumb{
-    width:13px;height:13px;border:0;border-radius:50%;background:var(--gold);
+    width:14px;
+    height:14px;
+    border:2px solid var(--gold);
+    border-radius:50%;
+    background:var(--bg);
   }
 
   form.guess-form{
@@ -306,6 +329,26 @@
     color:var(--muted);
     font-size:14px;
   }
+  .result-actions{
+    display:grid;
+    gap:10px;
+  }
+  .apple-music-btn{
+    width:100%;
+    min-height:44px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-decoration:none;
+    border:1px solid var(--border-strong);
+    border-radius:12px;
+    background:transparent;
+    color:var(--text);
+    font-weight:700;
+  }
+  .apple-music-btn:hover{
+    border-color:var(--gold);
+  }
   .next-btn{
     width:100%;
     height:48px;
@@ -378,7 +421,7 @@
     </form>
   </div>
 
-  <footer>made with :heart:</footer>
+  <footer>made by z</footer>
 </div>
 
 <div class="modal-backdrop" id="resultModal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
@@ -387,7 +430,10 @@
     <p class="result-kicker" id="resultKicker">Song revealed</p>
     <h2 class="result-title" id="resultTitle"></h2>
     <p class="result-artist" id="resultArtist"></p>
-    <button class="next-btn" id="nextBtn" type="button">Next song</button>
+    <div class="result-actions">
+      <a class="apple-music-btn" id="appleMusicBtn" href="#" target="_blank" rel="noopener noreferrer">Listen on Apple Music</a>
+      <button class="next-btn" id="nextBtn" type="button">Next song</button>
+    </div>
   </div>
 </div>
 
@@ -419,6 +465,7 @@
   const resultTitle = el("resultTitle");
   const resultArtist = el("resultArtist");
   const resultKicker = el("resultKicker");
+  const appleMusicBtn = el("appleMusicBtn");
   const nextBtn = el("nextBtn");
   const retryBtn = el("retryBtn");
   const markers = Array.from(document.querySelectorAll(".progress-marker"));
@@ -436,6 +483,9 @@
   let currentVolume = 1;
   let activeSuggestionIndex = -1;
   let playbackRun = 0;
+  let playbackMode = "idle";
+  let clipTick = null;
+  let answerTick = null;
 
   function normalize(s){
     return (s || "")
@@ -498,13 +548,33 @@
     progressFillEl.style.width = ((clamped / PREVIEW_LENGTH) * 100) + "%";
   }
 
+  function setPlayIcon(playing){
+    playIcon.innerHTML = playing
+      ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'
+      : '<path d="M8 5v14l11-7z"/>';
+    playBtn.setAttribute("aria-label", playing ? "Pause snippet" : "Play snippet");
+  }
+
   function resetPlaybackUI(){
     setProgress(0);
-    playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    setPlayIcon(false);
+  }
+
+  function removePlaybackListeners(){
+    if (audio && clipTick){
+      audio.removeEventListener("timeupdate", clipTick);
+      clipTick = null;
+    }
+    if (audio && answerTick){
+      audio.removeEventListener("timeupdate", answerTick);
+      answerTick = null;
+    }
   }
 
   function stopAudio(reset=true){
     playbackRun++;
+    removePlaybackListeners();
+    playbackMode = "idle";
     if (audio){
       audio.pause();
       if (reset) audio.currentTime = 0;
@@ -517,43 +587,63 @@
     if (!audio || over) return;
     const run = ++playbackRun;
     const target = DURATIONS[levelIndex];
+    removePlaybackListeners();
+    playbackMode = "clip";
     audio.loop = false;
     audio.currentTime = 0;
     setProgress(0);
-    playIcon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+    setPlayIcon(true);
 
-    const tick = () => {
+    clipTick = () => {
       if (run !== playbackRun || !audio) return;
       setProgress(Math.min(audio.currentTime, target));
       if (audio.currentTime >= target - 0.015){
         audio.pause();
         audio.currentTime = target;
         setProgress(target);
-        playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
-        audio.removeEventListener("timeupdate", tick);
+        playbackMode = "idle";
+        setPlayIcon(false);
+        removePlaybackListeners();
       }
     };
-    audio.addEventListener("timeupdate", tick);
+    audio.addEventListener("timeupdate", clipTick);
     audio.play().catch(() => {
-      audio.removeEventListener("timeupdate", tick);
+      if (run !== playbackRun) return;
+      playbackMode = "idle";
+      removePlaybackListeners();
       resetPlaybackUI();
     });
+  }
+
+  function toggleClipPlayback(){
+    if (!audio || over) return;
+    if (!audio.paused && playbackMode === "clip") {
+      playbackRun++;
+      audio.pause();
+      playbackMode = "idle";
+      removePlaybackListeners();
+      setPlayIcon(false);
+      return;
+    }
+    playClipToLevel();
   }
 
   function playAnswerUntilNext(){
     if (!audio) return;
     const run = ++playbackRun;
+    removePlaybackListeners();
+    playbackMode = "answer";
     audio.loop = true;
     audio.currentTime = 0;
     setProgress(PREVIEW_LENGTH);
-    playIcon.innerHTML = '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>';
+    setPlayIcon(true);
     audio.play().catch(() => {});
-    const tick = () => {
+    answerTick = () => {
       if (run !== playbackRun || !audio || !resultModal.classList.contains("show")) return;
       const duration = Math.min(audio.duration || PREVIEW_LENGTH, PREVIEW_LENGTH);
       if (duration > 0) setProgress(Math.min(audio.currentTime, duration));
     };
-    audio.addEventListener("timeupdate", tick);
+    audio.addEventListener("timeupdate", answerTick);
   }
 
   function pickNextSong(){
@@ -609,6 +699,8 @@
     resultArtist.textContent = current.artist;
     resultArt.src = current.art;
     resultArt.alt = current.name + " album cover";
+    appleMusicBtn.href = current.link || "#";
+    appleMusicBtn.setAttribute("aria-disabled", current.link ? "false" : "true");
     resultModal.classList.add("show");
     guessInput.disabled = true;
     submitBtn.disabled = true;
@@ -673,7 +765,7 @@
   }
 
   playBtn.addEventListener("click", () => {
-    if (!over) playClipToLevel();
+    if (!over) toggleClipPlayback();
   });
 
   guessForm.addEventListener("submit", event => {
@@ -709,10 +801,17 @@
     if (!guessForm.contains(event.target)) resetSuggestions();
   });
 
+  function syncVolumeUI(){
+    const percent = (Number(volumeSlider.value) * 100).toFixed(1) + "%";
+    volumeSlider.style.setProperty("--volume-percent", percent);
+  }
+
   volumeSlider.addEventListener("input", () => {
     currentVolume = Number(volumeSlider.value);
     if (audio) audio.volume = currentVolume;
+    syncVolumeUI();
   });
+  syncVolumeUI();
 
   nextBtn.addEventListener("click", () => {
     stopAudio();
