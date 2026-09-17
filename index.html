@@ -425,7 +425,7 @@
 
     <div id="errorState" class="state" style="display:none;">
       <div>Couldn't reach the chart or preview service.</div>
-      <div style="font-size:12.5px; max-width:34ch;">This usually means the page is being opened in a sandboxed preview, or there's no network connection. Try opening the downloaded file in a normal browser tab, ideally served from a local server rather than double-clicked.</div>
+      <div style="font-size:12.5px; max-width:34ch;">This page expects two serverless endpoints, /api/chart and /api/lookup, deployed alongside it. Make sure the api/ folder was uploaded and deployed together with index.html — opening this file locally by double-clicking won't have them.</div>
       <button class="btn-primary" id="retryBtn" type="button">Try again</button>
     </div>
 
@@ -488,8 +488,8 @@
 (function(){
   "use strict";
 
-  const CHART_URL = "https://rss.applemarketingtools.com/api/v2/us/music/most-played/100/songs.json";
-  const LOOKUP_URL = "https://itunes.apple.com/lookup?entity=song&id=";
+  const CHART_URL = "/api/chart";
+  const LOOKUP_URL = "/api/lookup?ids=";
   const DURATIONS = [0.1, 0.5, 2, 8, 15];
   const WAVE_BARS = 42;
 
